@@ -11,11 +11,20 @@ use Illuminate\Support\Facades\Validator;
 
 class KategoriController extends Controller
 {
-    public function index()
-    {
-        $kategoris = Kategori::latest()->paginate(10);
-        return new PostResource(true, 'List Data Kategori', $kategoris);
+    public function index(Request $request)
+{
+    $query = Kategori::latest();
+    
+    // If status parameter is present, filter by status
+    if ($request->has('status')) {
+        $query->where('status', $request->boolean('status'));
     }
+    
+    $kategoris = $query->paginate(10);
+    
+    return new PostResource(true, 'List Data Kategori', $kategoris);
+}
+
 
     public function store(Request $request)
     {
@@ -55,37 +64,47 @@ class KategoriController extends Controller
     }
 
     public function update(Request $request, $id)
-    {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
-            'status' => 'required|boolean'
-        ]);
+{
+    $validator = Validator::make($request->all(), [
+        'name' => 'required|string|max:255',
+        'image' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+        'status' => 'required|boolean',
+        'remove_image' => 'nullable|boolean'
+    ]);
 
-        if ($validator->fails()) {
-            return new PostResource(false, 'Validation Error', $validator->errors());
-        }
-
-        $kategori = Kategori::find($id);
-
-        if (!$kategori) {
-            return new PostResource(false, 'Kategori Not Found', null);
-        }
-
-        if ($request->hasFile('image')) {
-            if ($kategori->image) {
-                Storage::disk('public')->delete($kategori->image);
-            }
-            $image = $request->file('image')->store('kategoris', 'public');
-            $kategori->image = $image;
-        }
-
-        $kategori->name = $request->name;
-        $kategori->status = $request->status;
-        $kategori->save();
-
-        return new PostResource(true, 'Kategori Updated Successfully', $kategori);
+    if ($validator->fails()) {
+        return new PostResource(false, 'Validation Error', $validator->errors());
     }
+
+    $kategori = Kategori::find($id);
+
+    if (!$kategori) {
+        return new PostResource(false, 'Kategori Not Found', null);
+    }
+
+    // Handle image
+    if ($request->has('remove_image') && $request->remove_image) {
+        // Remove existing image if exists
+        if ($kategori->image && Storage::disk('public')->exists($kategori->image)) {
+            Storage::disk('public')->delete($kategori->image);
+        }
+        $kategori->image = null;
+    } elseif ($request->hasFile('image')) {
+        // Delete old image if exists
+        if ($kategori->image && Storage::disk('public')->exists($kategori->image)) {
+            Storage::disk('public')->delete($kategori->image);
+        }
+        // Store new image
+        $kategori->image = $request->file('image')->store('kategoris', 'public');
+    }
+
+    $kategori->name = $request->name;
+    $kategori->status = $request->status;
+    $kategori->save();
+
+    return new PostResource(true, 'Kategori Updated Successfully', $kategori);
+}
+
 
     public function destroy($id)
     {

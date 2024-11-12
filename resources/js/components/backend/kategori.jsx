@@ -16,6 +16,7 @@ const Kategori = () => {
     const [showModal, setShowModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
     const [selectedKategori, setSelectedKategori] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const [statusFilter, setStatusFilter] = useState('all');
     const [formData, setFormData] = useState({
         name: '',
@@ -41,7 +42,11 @@ const Kategori = () => {
                     ? response.data.data.data.filter(kategori => 
                         statusFilter === 'active' ? kategori.status : !kategori.status)
                     : response.data.data.data;
-                setKategoris(filteredKategoris);
+                
+                // Sort by ID ascending (oldest first)
+                const sortedKategoris = [...filteredKategoris].sort((a, b) => a.id - b.id);
+                
+                setKategoris(sortedKategoris);
                 setTotalPages(Math.ceil(response.data.data.total / 10));
             } catch (error) {
                 console.error('Error searching kategoris:', error);
@@ -51,7 +56,7 @@ const Kategori = () => {
         }, 300),
         [statusFilter]
     );
-
+    
     const fetchKategoris = async (page = 1) => {
         try {
             setLoading(true);
@@ -60,7 +65,11 @@ const Kategori = () => {
                 ? response.data.data.data.filter(kategori => 
                     statusFilter === 'active' ? kategori.status : !kategori.status)
                 : response.data.data.data;
-            setKategoris(filteredKategoris);
+            
+            // Sort by ID ascending (oldest first)
+            const sortedKategoris = [...filteredKategoris].sort((a, b) => a.id - b.id);
+            
+            setKategoris(sortedKategoris);
             setTotalPages(Math.ceil(response.data.data.total / 10));
             setCurrentPage(page);
         } catch (error) {
@@ -91,13 +100,20 @@ const Kategori = () => {
                     const formDataObj = new FormData();
                     formDataObj.append('name', formData.name);
                     formDataObj.append('status', formData.status ? 1 : 0);
-                    if (formData.image) {
-                        formDataObj.append('image', formData.image);
-                    }
-
+                    
                     if (editMode) {
+                        // Explicitly handle image removal
+                        if (formData.image === 'remove') {
+                            formDataObj.append('remove_image', '1');
+                        } else if (formData.image instanceof File) {
+                            formDataObj.append('image', formData.image);
+                        }
+                        
                         await apiService.kategoris.update(selectedKategori.id, formDataObj);
                     } else {
+                        if (formData.image instanceof File) {
+                            formDataObj.append('image', formData.image);
+                        }
                         await apiService.kategoris.create(formDataObj);
                     }
                     
@@ -107,10 +123,11 @@ const Kategori = () => {
                     resetForm();
                 } catch (error) {
                     showErrorAlert('An error occurred while saving the category');
+                    console.error('Error:', error);
                 }
             }
         });
-    };
+    };    
 
     const showSuccessAlert = (message) => {
         setAlert({
@@ -173,9 +190,45 @@ const Kategori = () => {
             status: kategori.status,
             image: null
         });
+        // Set image preview if kategori has image
+        setImagePreview(kategori.image ? `/storage/${kategori.image}` : null);
         setEditMode(true);
         setShowModal(true);
     };
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setFormData({ ...formData, image: file });
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const handleRemoveImage = () => {
+        if (editMode && selectedKategori?.image) {
+            setFormData(prev => ({
+                ...prev,
+                image: 'remove'
+            }));
+            setImagePreview(null);
+            // Clear the image from selectedKategori to update UI immediately
+            setSelectedKategori(prev => ({
+                ...prev,
+                image: null
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                image: null
+            }));
+            setImagePreview(null);
+        }
+    };
+    
 
     const handleViewDetails = (kategori) => {
         setSelectedKategori(kategori);
@@ -190,6 +243,7 @@ const Kategori = () => {
         });
         setSelectedKategori(null);
         setEditMode(false);
+        setImagePreview(null);
     };
 
     return (
@@ -253,12 +307,18 @@ const Kategori = () => {
                                 <tr key={kategori.id} className={`${isDarkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-50'}`}>
                                     <td className="px-6 py-4 whitespace-nowrap">{kategori.name}</td>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <img
-                                            src={`/storage/${kategori.image}`}
-                                            alt={kategori.name}
-                                            className="h-10 w-10 object-cover rounded cursor-pointer"
-                                            onClick={() => handleViewDetails(kategori)}
-                                        />
+                                        {kategori.image ? (
+                                            <img
+                                                src={`/storage/${kategori.image}`}
+                                                alt={kategori.name}
+                                                className="h-10 w-10 object-cover rounded cursor-pointer"
+                                                onClick={() => handleViewDetails(kategori)}
+                                            />
+                                        ) : (
+                                            <div className="h-10 w-10 rounded bg-gray-200 flex items-center justify-center text-gray-400 text-xs">
+                                                No Image
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap">
                                         <button
@@ -345,66 +405,122 @@ const Kategori = () => {
                         onClose={() => {
                             setShowModal(false);
                             resetForm();
+                            setImagePreview(null);
                         }}
                         title={editMode ? 'Edit Category' : 'Add New Category'}
                         isDarkMode={isDarkMode}
                     >
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-medium">Name</label>
-                                <input
-                                    type="text"
-                                    value={formData.name}
-                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                                    className={`mt-1 block w-full rounded-md shadow-sm px-3 py-2 ${
-                                        isDarkMode ? 'bg-gray-700 text-white' : 'border-gray-300'
-                                    }`}
-                                    required
-                                />
+                            <div className="space-y-4">
+                                {/* Name Input */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Category Name</label>
+                                    <input
+                                        type="text"
+                                        value={formData.name}
+                                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                        className={`w-full rounded-lg shadow-sm px-4 py-2.5 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 text-white border-gray-600' 
+                                                : 'bg-white border-gray-300'
+                                        } border focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                                        required
+                                        placeholder="Enter category name"
+                                    />
+                                </div>
+
+                                {/* Image Upload Section */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-2">Category Image</label>
+                                    <div className={`p-4 rounded-lg border-2 border-dashed ${
+                                        isDarkMode ? 'border-gray-600' : 'border-gray-300'
+                                    }`}>
+                                        {/* Image Preview */}
+                                        {(imagePreview || (editMode && selectedKategori?.image)) && (
+                                            <div className="mb-4">
+                                                <div className="relative w-full max-w-[200px] mx-auto">
+                                                    <img
+                                                        src={imagePreview || `/storage/${selectedKategori?.image}`}
+                                                        alt="Preview"
+                                                        className="rounded-lg w-full h-auto object-cover"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleRemoveImage}
+                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                                                    >
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        {/* Upload Button */}
+                                        <div className="text-center">
+                                            <label className="cursor-pointer inline-flex items-center space-x-2">
+                                                <span className={`px-4 py-2 rounded-lg ${
+                                                    isDarkMode 
+                                                        ? 'bg-gray-600 hover:bg-gray-500' 
+                                                        : 'bg-gray-100 hover:bg-gray-200'
+                                                } transition-colors`}>
+                                                    <span className="text-sm">Choose Image</span>
+                                                </span>
+                                                <input
+                                                    type="file"
+                                                    onChange={handleImageChange}
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                />
+                                            </label>
+                                            <p className={`mt-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                PNG, JPG or JPEG (MAX. 2MB)
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Status Selection */}
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Status</label>
+                                    <select
+                                        value={formData.status}
+                                        onChange={(e) => setFormData({ ...formData, status: e.target.value === 'true' })}
+                                        className={`w-full rounded-lg shadow-sm px-4 py-2.5 ${
+                                            isDarkMode 
+                                                ? 'bg-gray-700 text-white border-gray-600' 
+                                                : 'bg-white border-gray-300'
+                                        } border focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                                    >
+                                        <option value="true">Active</option>
+                                        <option value="false">Inactive</option>
+                                    </select>
+                                </div>
                             </div>
 
-                            <div>
-                                <label className="block text-sm font-medium">Image</label>
-                                <input
-                                    type="file"
-                                    onChange={(e) => setFormData({ ...formData, image: e.target.files[0] })}
-                                    className={`mt-1 block w-full ${
-                                        isDarkMode ? 'text-gray-200' : 'text-gray-700'
-                                    }`}
-                                    accept="image/*"
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-medium">Status</label>
-                                <select
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value === 'true' })}
-                                    className={`mt-1 block w-full rounded-md shadow-sm px-3 py-2 ${
-                                        isDarkMode ? 'bg-gray-700 text-white' : 'border-gray-300'
-                                    }`}
-                                >
-                                    <option value="true">Active</option>
-                                    <option value="false">Inactive</option>
-                                </select>
-                            </div>
-
-                            <div className="flex justify-end space-x-3">
+                            {/* Form Actions */}
+                            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-200">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         setShowModal(false);
                                         resetForm();
+                                        setImagePreview(null);
                                     }}
-                                    className="px-4 py-2 rounded bg-gray-300 text-gray-700 hover:bg-gray-400"
+                                    className={`px-4 py-2 rounded-lg ${
+                                        isDarkMode 
+                                            ? 'bg-gray-600 hover:bg-gray-500' 
+                                            : 'bg-gray-100 hover:bg-gray-200'
+                                    } transition-colors`}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                                 >
-                                    {editMode ? 'Update' : 'Create'}
+                                    {editMode ? 'Update Category' : 'Create Category'}
                                 </button>
                             </div>
                         </form>
@@ -422,11 +538,17 @@ const Kategori = () => {
                     >
                         <div className="space-y-6">
                             <div className="flex justify-center">
-                                <img
-                                    src={`/storage/${selectedKategori.image}`}
-                                    alt={selectedKategori.name}
-                                    className="max-h-64 object-contain rounded-lg"
-                                />
+                                {selectedKategori.image ? (
+                                    <img
+                                        src={`/storage/${selectedKategori.image}`}
+                                        alt={selectedKategori.name}
+                                        className="max-h-64 object-contain rounded-lg"
+                                    />
+                                ) : (
+                                    <div className="h-64 w-64 rounded-lg bg-gray-200 flex items-center justify-center text-gray-400">
+                                        No Image Available
+                                    </div>
+                                )}
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>

@@ -1,4 +1,54 @@
 @tailwind base;
 @tailwind components;
-@import './components.css';
 @tailwind utilities;
+
+/* Add these new animation classes */
+@keyframes fadeInUp {
+    0% {
+      opacity: 0;
+      transform: translateY(40px) scale(0.95);
+    }
+    20% {
+      opacity: 0.2;
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  
+  .animate-fadeIn {
+    animation: fadeInUp 1.2s cubic-bezier(0.23, 1, 0.32, 1) forwards;
+    will-change: transform, opacity;
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+  
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .category-scroll {
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .category-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Prevent image flicker during loading */
+  img {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+  
+  
+  

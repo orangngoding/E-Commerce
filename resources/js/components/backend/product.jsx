@@ -84,10 +84,8 @@ const Product = () => {
             let response;
     
             if (searchQuery) {
-                // Use dedicated search endpoint when there's a search query
                 response = await apiService.products.search(searchQuery);
             } else {
-                // Use regular list endpoint for filters
                 const queryParams = {
                     page: pagination.currentPage,
                     status: filters.status || undefined,
@@ -95,7 +93,6 @@ const Product = () => {
                     in_stock: filters.in_stock || undefined
                 };
     
-                // Remove empty/undefined values
                 Object.keys(queryParams).forEach(key => 
                     queryParams[key] === undefined && delete queryParams[key]
                 );
@@ -105,7 +102,11 @@ const Product = () => {
             
             if (response?.data?.data) {
                 const { data: productData } = response.data;
-                setProducts(productData.data);
+                
+                // Sort products by ID in ascending order (oldest first)
+                const sortedProducts = [...productData.data].sort((a, b) => a.id - b.id);
+                
+                setProducts(sortedProducts);
                 setPagination({
                     currentPage: productData.current_page,
                     lastPage: productData.last_page,
@@ -125,7 +126,7 @@ const Product = () => {
         } finally {
             setLoading(false);
         }
-    };
+    };    
 
     const fetchCategories = async () => {
         try {

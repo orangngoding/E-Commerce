@@ -120,11 +120,17 @@ const apiService = {
                     'Content-Type': 'multipart/form-data'
                 }
             };
-            return axiosInstance.post(`/kategoris/${id}`, data, config);
+            return axiosInstance.post(`/kategoris/${id}?_method=PUT`, data, config);
         },
         delete: (id) => axiosInstance.delete(`/kategoris/${id}`),
         search: (query) => axiosInstance.get(`/kategoris/search?keyword=${query}`),
         updateStatus: (id) => axiosInstance.patch(`/kategoris/${id}/status`),
+        getActive: (page = 1) => axiosInstance.get('/kategoris', {
+            params: {
+                status: true,
+                page
+            }
+        }),
     },
 
     //product endpoints
@@ -189,6 +195,25 @@ const apiService = {
         updateStatus: (id) => axiosInstance.patch(`/sliders/${id}/status`),
     },
     
+    // kupons endpoints
+    kupons: {
+        list: (params = {}) => axiosInstance.get('/kupons', {
+            params,
+            paramsSerializer: params => {
+                return Object.entries(params)
+                    .filter(([_, value]) => value !== undefined && value !== '')
+                    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+                    .join('&');
+            }
+        }),
+        getActive: () => axiosInstance.get('/kupons/active'),
+        get: (id) => axiosInstance.get(`/kupons/${id}`),
+        create: (data) => axiosInstance.post('/kupons', data),
+        update: (id, data) => axiosInstance.put(`/kupons/${id}`, data),
+        delete: (id) => axiosInstance.delete(`/kupons/${id}`),
+        search: (query) => axiosInstance.get(`/kupons/search?q=${query}`),
+        updateStatus: (id) => axiosInstance.patch(`/kupons/${id}/status`),
+    },
     // Add more API endpoints as needed
 };
 

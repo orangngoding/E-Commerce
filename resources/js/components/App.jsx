@@ -8,6 +8,8 @@ import Kategori from './backend/kategori';
 import Product from './backend/product';
 import UserManagement from './backend/user_management';
 import Slider from './backend/slider';
+import Kupon from './backend/kupon';
+import Home from './frontend/home';
 import ProtectedRoute from './ProtectedRoute';
 
 function App() {
@@ -16,6 +18,8 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
             <Route path="/reset-password" element={<PasswordReset />} />
+            <Route path="/home" element={<Home />} />
+        
             
             {/* Admin routes */}
             <Route path="/admin/*" element={
@@ -28,6 +32,7 @@ function App() {
                 <Route path="kategoris" element={<Kategori />} />
                 <Route path="products" element={<Product />} />
                 <Route path="sliders" element={<Slider />} />
+                <Route path="kupons" element={<Kupon />} />
             </Route>
 
             {/* Staff routes */}
@@ -40,6 +45,7 @@ function App() {
                 <Route path="kategoris" element={<Kategori />} />
                 <Route path="products" element={<Product />} />
                 <Route path="sliders" element={<Slider />} />
+                <Route path="kupons" element={<Kupon />} />
             </Route>
 
             <Route path="/" element={<Navigate to="/login" replace />} />

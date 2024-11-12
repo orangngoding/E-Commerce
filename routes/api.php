@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\KategoriController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\SliderController;
+use App\Http\Controllers\Api\KuponController;
 
 // Public routes
 Route::post('/login', [AuthController::class, 'login']);
@@ -14,6 +15,21 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('password.email');
 Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('password.reset');
 
+// public route kategoris
+Route::get('/kategoris', [KategoriController::class, 'index']);
+Route::get('/kategoris/search', [KategoriController::class, 'search']);
+Route::get('/kategoris/{id}', [KategoriController::class, 'show']);
+
+// public route products
+Route::get('/products', [ProductController::class, 'index']);
+Route::get('/products/search', [ProductController::class, 'search']);
+Route::get('/products/{id}', [ProductController::class, 'show']);
+
+//public route sliders
+Route::get('/sliders', [SliderController::class, 'index']);
+Route::get('/sliders/search', [SliderController::class, 'search']);
+Route::get('/sliders/active', [SliderController::class, 'getActiveSliders']);
+Route::get('/sliders/{id}', [SliderController::class, 'show']);
 
 // Protected routes
 Route::middleware(['auth:sanctum'])->group(function () {
@@ -37,20 +53,14 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::middleware(['role:super_admin,staff'])->group(function () {
 
     Route::prefix('kategoris')->group(function () {
-        Route::get('/', [KategoriController::class, 'index']);
         Route::post('/', [KategoriController::class, 'store']);
-        Route::get('/search', [KategoriController::class, 'search']);
-        Route::get('/{id}', [KategoriController::class, 'show']);
-        Route::post('/{id}', [KategoriController::class, 'update']);
+        Route::put('/{id}', [KategoriController::class, 'update']);
         Route::delete('/{id}', [KategoriController::class, 'destroy']);
         Route::patch('/{id}/status', [KategoriController::class, 'updateStatus']);
     });
 
     Route::prefix('products')->group(function () {
-        Route::get('/', [ProductController::class, 'index']);
         Route::post('/', [ProductController::class, 'store']);
-        Route::get('/search', [ProductController::class, 'search']);
-        Route::get('/{id}', [ProductController::class, 'show']);
         Route::post('/{id}', [ProductController::class, 'update']);
         Route::delete('/{id}', [ProductController::class, 'destroy']);
         Route::patch('/{id}/status', [ProductController::class, 'updateStatus']);
@@ -58,15 +68,23 @@ Route::middleware(['auth:sanctum'])->group(function () {
     });
 
     Route::prefix('sliders')->group(function () {
-        Route::get('/', [SliderController::class, 'index']);
         Route::post('/', [SliderController::class, 'store']);
-        Route::get('/search', [SliderController::class, 'search']);
-        Route::get('/active', [SliderController::class, 'getActiveSliders']);
-        Route::get('/{id}', [SliderController::class, 'show']);
         Route::post('/{id}', [SliderController::class, 'update']);
         Route::delete('/{id}', [SliderController::class, 'destroy']);
         Route::patch('/{id}/status', [SliderController::class, 'updateStatus']);
     });
+
+    Route::prefix('kupons')->group(function () {
+        Route::get('/', [KuponController::class, 'index']);
+        Route::post('/', [KuponController::class, 'store']);
+        Route::get('/search', [KuponController::class, 'search']);
+        Route::get('/active', [KuponController::class, 'getActiveKupons']);
+        Route::get('/{id}', [KuponController::class, 'show']);
+        Route::put('/{id}', [KuponController::class, 'update']);
+        Route::delete('/{id}', [KuponController::class, 'destroy']);
+        Route::patch('/{id}/status', [KuponController::class, 'updateStatus']);
+    });
+    
 });
 
 });

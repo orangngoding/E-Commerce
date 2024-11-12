@@ -33,7 +33,7 @@ class SliderController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'judul' => 'required|string|max:255',
+            'judul' => 'nullable|string|max:255',
             'status' => 'boolean'
         ]);
 
@@ -75,7 +75,7 @@ class SliderController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            'judul' => 'required|string|max:255',
+            'judul' => 'nullable|string|max:255',
             'status' => 'boolean'
         ]);
 
@@ -133,15 +133,21 @@ class SliderController extends Controller
      * Search sliders
      */
     public function search(Request $request)
-    {
-        $query = $request->get('q');
-        
-        $sliders = Slider::where('judul', 'LIKE', "%{$query}%")
-            ->latest()
-            ->paginate(10);
+{
+    $query = $request->get('q');
+    
+    $sliders = Slider::where('judul', 'LIKE', "%{$query}%")
+        ->latest()
+        ->paginate(10);
 
-        return new PostResource(true, 'Search Results', $sliders);
-    }
+    // Transform collection to include image_url
+    $sliders->getCollection()->transform(function ($slider) {
+        $slider->image_url = $slider->image_url; // This uses the accessor
+        return $slider;
+    });
+
+    return new PostResource(true, 'Search Results', $sliders);
+}
 
     /**
      * Update slider status
@@ -164,8 +170,16 @@ class SliderController extends Controller
      * Get active sliders
      */
     public function getActiveSliders()
-    {
-        $sliders = Slider::active()->latest()->get();
-        return new PostResource(true, 'Active Sliders', $sliders);
-    }
+{
+    $sliders = Slider::active()->latest()->get();
+    
+    // Transform the sliders to include image_url
+    $sliders->transform(function ($slider) {
+        $slider->image_url = $slider->image_url; // This uses the accessor
+        return $slider;
+    });
+    
+    return new PostResource(true, 'Active Sliders', $sliders);
+}
+
 }
