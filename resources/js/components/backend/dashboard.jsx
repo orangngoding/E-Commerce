@@ -10,6 +10,7 @@ const Dashboard = () => {
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
     const [isMasterDataOpen, setIsMasterDataOpen] = useState(false);
     const [isKuponOpen, setIsKuponOpen] = useState(false);
+    const [isProductOpen, setIsProductOpen] = useState(false);
     const [isDarkMode, setIsDarkMode] = useState(localStorage.getItem('darkMode') === 'true');
 
     useEffect(() => {
@@ -20,12 +21,12 @@ const Dashboard = () => {
     const handleLogout = async () => {
         try {
             await apiService.auth.logout();
-            localStorage.removeItem('token');
+            localStorage.removeItem('adminToken');
             localStorage.removeItem('user');
             navigate('/login');
         } catch (error) {
             console.error('Logout failed:', error);
-            localStorage.removeItem('token');
+            localStorage.removeItem('adminToken');
             localStorage.removeItem('user');
             navigate('/login');
         }
@@ -166,12 +167,143 @@ const Dashboard = () => {
                             </Link>
 
                              {/* Master Data Dropdown */}
-                            <div className="relative">
+                             <div className="relative">
+                        <button
+                            onClick={() => setIsMasterDataOpen(!isMasterDataOpen)}
+                            className={`w-full group flex items-center px-2 py-2 text-base font-medium rounded-md ${
+                                location.pathname.includes('/kategoris') || 
+                                location.pathname.includes('/products') || 
+                                location.pathname.includes('/kupons')
+                                    ? isDarkMode
+                                        ? 'bg-gray-900 text-white'
+                                        : 'bg-blue-50 text-blue-600'
+                                    : isDarkMode
+                                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                            }`}
+                        >
+                            <svg className="mr-4 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                    d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4m0 5c0 2.21-3.582 4-8 4s-8-1.79-8-4" />
+                            </svg>
+                            Master Data
+                            <svg className={`ml-auto h-5 w-5 transform transition-transform duration-200 ${isMasterDataOpen ? 'rotate-180' : ''}`} 
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+
+                        {isMasterDataOpen && (
+                            <div className="mt-2 space-y-1">
+                                {/* Categories */}
+                                <Link
+                                    to="kategoris"
+                                    className={`group flex items-center pl-11 pr-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                        location.pathname.includes('/kategoris')
+                                            ? isDarkMode
+                                                ? 'bg-gray-900 text-white'
+                                                : 'bg-blue-50 text-blue-600'
+                                            : isDarkMode
+                                                ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                    }`}
+                                >
+                                    <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                            d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                                    </svg>
+                                    Categories
+                                </Link>
+
+                                {/* Products Section */}
                                 <button
-                                    onClick={() => setIsMasterDataOpen(!isMasterDataOpen)}
-                                    className={`w-full group flex items-center px-2 py-2 text-base font-medium rounded-md ${
-                                        location.pathname.includes('/kategoris') || 
-                                        location.pathname.includes('/products') || 
+                                    onClick={() => setIsProductOpen(!isProductOpen)}
+                                    className={`w-full group flex items-center pl-11 pr-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                        location.pathname.includes('/products')
+                                            ? isDarkMode
+                                                ? 'bg-gray-900 text-white'
+                                                : 'bg-blue-50 text-blue-600'
+                                            : isDarkMode
+                                                ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                    }`}
+                                >
+                                    <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
+                                    Products
+                                    <svg className={`ml-auto h-4 w-4 transform transition-transform duration-200 ${isProductOpen ? 'rotate-180' : ''}`} 
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+
+                                {isProductOpen && (
+                                    <div className="pl-20 space-y-1">
+                                        <Link
+                                            to="products"
+                                            className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                                location.pathname === '/admin/products'
+                                                    ? isDarkMode
+                                                        ? 'bg-gray-900 text-white'
+                                                        : 'bg-blue-50 text-blue-600'
+                                                    : isDarkMode
+                                                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                            </svg>
+                                            Product List
+                                        </Link>
+
+                                        <Link
+                                            to="size-products"
+                                            className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                                location.pathname === '/admin/size-products'
+                                                    ? isDarkMode
+                                                        ? 'bg-gray-900 text-white'
+                                                        : 'bg-blue-50 text-blue-600'
+                                                    : isDarkMode
+                                                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                    d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                            </svg>
+                                            Size Products
+                                        </Link>
+
+                                        <Link
+                                            to="color-products"
+                                            className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                                location.pathname === '/admin/color-products'
+                                                    ? isDarkMode
+                                                        ? 'bg-gray-900 text-white'
+                                                        : 'bg-blue-50 text-blue-600'
+                                                    : isDarkMode
+                                                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                            }`}
+                                        >
+                                            <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                    d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+                                            </svg>
+                                            Color Products
+                                        </Link>
+                                    </div>
+                                )}
+
+                                {/* Kupon Section */}
+                                <button
+                                    onClick={() => setIsKuponOpen(!isKuponOpen)}
+                                    className={`w-full group flex items-center pl-11 pr-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
                                         location.pathname.includes('/kupons')
                                             ? isDarkMode
                                                 ? 'bg-gray-900 text-white'
@@ -181,22 +313,23 @@ const Dashboard = () => {
                                                 : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                     }`}
                                 >
-                                    <svg className="mr-4 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                    <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                            d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
                                     </svg>
-                                    Master Data
-                                    <svg className={`ml-auto h-5 w-5 transform transition-transform duration-200 ${isMasterDataOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    Kupon
+                                    <svg className={`ml-auto h-4 w-4 transform transition-transform duration-200 ${isKuponOpen ? 'rotate-180' : ''}`} 
+                                        fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </button>
 
-                                {isMasterDataOpen && (
-                                    <div className="pl-11 space-y-1">
-                                        {/* Categories */}
+                                {isKuponOpen && (
+                                    <div className="pl-20">
                                         <Link
-                                            to="kategoris"
-                                            className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                                                location.pathname.includes('/kategoris')
+                                            to="kupons"
+                                            className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                                location.pathname.includes('/kupons')
                                                     ? isDarkMode
                                                         ? 'bg-gray-900 text-white'
                                                         : 'bg-blue-50 text-blue-600'
@@ -205,17 +338,28 @@ const Dashboard = () => {
                                                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                             }`}
                                         >
-                                            <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                                            </svg>
-                                            Categories
-                                        </Link>
+                                            <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                    d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    Set Kupon
+                                                </Link>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
 
-                                        {/* Products */}
-                                        <Link
-                                            to="products"
-                                            className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                                                location.pathname.includes('/products')
+
+                           {/* Settings Dropdown */}
+                                {(user?.role === 'super_admin' || user?.role === 'staff') && (
+                                    <div className="relative">
+                                        <button
+                                            onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                                            className={`w-full group flex items-center px-2 py-2 text-base font-medium rounded-md transition-colors duration-200 ${
+                                                location.pathname.includes('/users') || 
+                                                location.pathname.includes('/customer-users') || 
+                                                location.pathname.includes('/sliders')
                                                     ? isDarkMode
                                                         ? 'bg-gray-900 text-white'
                                                         : 'bg-blue-50 text-blue-600'
@@ -224,37 +368,26 @@ const Dashboard = () => {
                                                         : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                             }`}
                                         >
-                                            <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                            <svg className="mr-4 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                    d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                             </svg>
-                                            Products
-                                        </Link>
+                                            Settings
+                                            <svg className={`ml-auto h-5 w-5 transform transition-transform duration-200 ${isSettingsOpen ? 'rotate-180' : ''}`} 
+                                                fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
 
-                                        {/* Kupon with sub-menu */}
-                                        <div className="relative">
-                                            <button
-                                                onClick={() => setIsKuponOpen(!isKuponOpen)}
-                                                className={`w-full group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                                                    isDarkMode
-                                                        ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                                        : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                }`}
-                                            >
-                                                <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 5v2m0 4v2m0 4v2M5 5a2 2 0 00-2 2v3a2 2 0 110 4v3a2 2 0 002 2h14a2 2 0 002-2v-3a2 2 0 110-4V7a2 2 0 00-2-2H5z" />
-                                                </svg>
-                                                Kupon
-                                                <svg className={`ml-auto h-4 w-4 transform transition-transform duration-200 ${isKuponOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                                </svg>
-                                            </button>
-
-                                            {isKuponOpen && (
-                                                <div className="pl-8">
+                                        {isSettingsOpen && (
+                                            <div className="pl-11 space-y-1">
+                                                {/* User Management - Only visible to super_admin */}
+                                                {user?.role === 'super_admin' && (
                                                     <Link
-                                                        to="kupons"
-                                                        className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                                                            location.pathname === '/kupons' || location.pathname.endsWith('/kupons')
+                                                        to="users"
+                                                        className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                                            location.pathname === '/admin/users'
                                                                 ? isDarkMode
                                                                     ? 'bg-gray-900 text-white'
                                                                     : 'bg-blue-50 text-blue-600'
@@ -263,100 +396,57 @@ const Dashboard = () => {
                                                                     : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
                                                         }`}
                                                     >
-                                                        <svg className="mr-3 h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                                                         </svg>
-                                                        Set Kupon
+                                                        User Management
                                                     </Link>
-                                                </div>
-                                            )}
-                                        </div>
+                                                )}
+
+                                                {/* Customer Management - Accessible to both super_admin and staff */}
+                                                <Link
+                                                    to="customer-users"
+                                                    className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                                        location.pathname === '/admin/customer-users'
+                                                            ? isDarkMode
+                                                                ? 'bg-gray-900 text-white'
+                                                                : 'bg-blue-50 text-blue-600'
+                                                            : isDarkMode
+                                                                ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                    }`}
+                                                >
+                                                    <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                                    </svg>
+                                                    Customer Management
+                                                </Link>
+
+                                                {/* Slider Management - Accessible to both super_admin and staff */}
+                                                <Link
+                                                    to="sliders"
+                                                    className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md transition-colors duration-200 ${
+                                                        location.pathname === '/admin/sliders'
+                                                            ? isDarkMode
+                                                                ? 'bg-gray-900 text-white'
+                                                                : 'bg-blue-50 text-blue-600'
+                                                            : isDarkMode
+                                                                ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
+                                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                                                    }`}
+                                                >
+                                                    <svg className="mr-3 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                                                            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    Slider
+                                                </Link>
+                                            </div>
+                                        )}
                                     </div>
                                 )}
-                            </div>
-
-
-                            {/* Settings Dropdown */}
-                            {user?.role === 'super_admin' && (
-                                <div className="relative">
-                                    <button
-                                        onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                                        className={`w-full group flex items-center px-2 py-2 text-base font-medium rounded-md ${
-                                            isDarkMode
-                                                ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                                : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                        }`}
-                                    >
-                                        <svg className="mr-4 h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                        </svg>
-                                        Settings
-                                        <svg className={`ml-auto h-5 w-5 transform ${isSettingsOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-                                        </svg>
-                                    </button>
-
-                                    {isSettingsOpen && (
-                                        <div className="pl-11 space-y-1">
-                                            <Link
-                                                to="users"
-                                                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                                                    location.pathname.includes('/users')
-                                                        ? isDarkMode
-                                                            ? 'bg-gray-900 text-white'
-                                                            : 'bg-blue-50 text-blue-600'
-                                                        : isDarkMode
-                                                            ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                }`}
-                                            >
-                                                <svg 
-                                                    className="mr-3 h-5 w-5"
-                                                    fill="none" 
-                                                    viewBox="0 0 24 24" 
-                                                    stroke="currentColor"
-                                                >
-                                                    <path 
-                                                        strokeLinecap="round" 
-                                                        strokeLinejoin="round" 
-                                                        strokeWidth="2" 
-                                                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" 
-                                                    />
-                                                </svg>
-                                                User Management
-                                            </Link>
-                                            <Link
-                                                to="sliders"
-                                                className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                                                    location.pathname.includes('/sliders')
-                                                        ? isDarkMode
-                                                            ? 'bg-gray-900 text-white'
-                                                            : 'bg-blue-50 text-blue-600'
-                                                        : isDarkMode
-                                                            ? 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                                                            : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                                                }`}
-                                            >
-                                                <svg 
-                                                    className="mr-3 h-5 w-5"
-                                                    fill="none" 
-                                                    viewBox="0 0 24 24" 
-                                                    stroke="currentColor"
-                                                >
-                                                    <path 
-                                                        strokeLinecap="round" 
-                                                        strokeLinejoin="round" 
-                                                        strokeWidth="2" 
-                                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                                    />
-                                                </svg>
-                                                Slider
-                                            </Link>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </nav>
                 </div>

@@ -20,7 +20,7 @@ const CategoryCarousel = ({ categories, loading, itemsPerSlide = 6 }) => {
     const itemsForCurrentSlide = sortedCategories.slice(start, start + itemsPerSlide);
     
     // Fill remaining slots with items from the beginning if needed
-    if (itemsForCurrentSlide.length < itemsPerSlide && sortedCategories.length > 0) {
+    if (itemsForCurrentSlide.length < itemsPerSlide && totalSlides > 1) {
       const remainingSlots = itemsPerSlide - itemsForCurrentSlide.length;
       const fillerItems = sortedCategories.slice(0, remainingSlots);
       return [...itemsForCurrentSlide, ...fillerItems];

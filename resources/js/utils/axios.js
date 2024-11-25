@@ -14,16 +14,26 @@ const axiosInstance = axios.create({
 // Request interceptor
 axiosInstance.interceptors.request.use(
     async (config) => {
-        // Get CSRF token from meta tag
+        // Get CSRF token
         const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
         if (token) {
             config.headers['X-CSRF-TOKEN'] = token;
         }
 
-        // Add auth token if exists
-        const authToken = localStorage.getItem('token');
-        if (authToken) {
-            config.headers.Authorization = `Bearer ${authToken}`;
+        // Check if it's a customer endpoint
+        const isCustomerEndpoint = config.url?.startsWith('customer/');
+        
+        // Add appropriate auth token
+        if (isCustomerEndpoint) {
+            const customerToken = localStorage.getItem('customerToken');
+            if (customerToken) {
+                config.headers.Authorization = `Bearer ${customerToken}`;
+            }
+        } else {
+            const adminToken = localStorage.getItem('adminToken');
+            if (adminToken) {
+                config.headers.Authorization = `Bearer ${adminToken}`;
+            }
         }
 
         return config;
@@ -38,17 +48,21 @@ axiosInstance.interceptors.response.use(
     (response) => response,
     async (error) => {
         const originalRequest = error.config;
-
+        const isCustomerEndpoint = originalRequest.url?.startsWith('customer/');
+        
         // Handle 401 Unauthorized
         if (error.response?.status === 401 && !originalRequest._retry) {
             originalRequest._retry = true;
             
-            // Clear auth data
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            
-            // Redirect to login
-            window.location.href = '/login';
+            if (isCustomerEndpoint) {
+                localStorage.removeItem('customerToken');
+                localStorage.removeItem('customerUser');
+                window.location.href = '/customer/login';
+            } else {
+                localStorage.removeItem('adminToken');
+                localStorage.removeItem('user');
+                window.location.href = '/login';
+            }
             return Promise.reject(error);
         }
 
@@ -82,13 +96,27 @@ axiosInstance.interceptors.response.use(
 
 // API service methods
 const apiService = {
-    // Auth endpoints
+    // Auth endpoints untuk admin
     auth: {
         login: (credentials) => axiosInstance.post('/login', credentials),
         logout: () => axiosInstance.post('/logout'),
         me: () => axiosInstance.get('/me'),
         forgotPassword: (data) => axiosInstance.post('/forgot-password', data),
         resetPassword: (data) => axiosInstance.post('/reset-password', data),
+    },
+
+    //auth endpoints untuk customer user
+    authcustomer: {
+        register: (data) => axiosInstance.post('customer/register', data),
+        verifyOtp: (data) => axiosInstance.post('customer/verify-otp', data),
+        resendOtp: (data) => axiosInstance.post('customer/resend-otp', data),
+        login: (data) => axiosInstance.post('customer/login', data),
+        logout: () => axiosInstance.post('customer/logout'),
+        me: () => axiosInstance.get('customer/me'),
+        forgotPassword: (data) => axiosInstance.post('customer/forgot-password', data),
+        resetPassword: (data) => axiosInstance.post('customer/reset-password', data),
+        updateProfile: (data) => axiosInstance.put('customer/profile', data),
+        changePassword: (data) => axiosInstance.post('customer/change-password', data),
     },
 
     // User endpoints
@@ -167,6 +195,13 @@ const apiService = {
         delete: (id) => axiosInstance.delete(`/products/${id}`),
         updateStatus: (id, newStatus) => 
             axiosInstance.patch(`/products/${id}/status`, { status: newStatus }),
+        getLatestPublished: () => axiosInstance.get('/products/latest-published'),
+        getPublished: (id = null) => {
+            if (id) {
+                return axiosInstance.get(`/products/get-published/${id}`);
+            }
+            return axiosInstance.get('/products/get-published');
+        },
     },
 
     //slider endpoints
@@ -213,6 +248,67 @@ const apiService = {
         delete: (id) => axiosInstance.delete(`/kupons/${id}`),
         search: (query) => axiosInstance.get(`/kupons/search?q=${query}`),
         updateStatus: (id) => axiosInstance.patch(`/kupons/${id}/status`),
+    },
+
+    //customer user endpoints
+    customerUsers: {
+        list: (params = {}) => axiosInstance.get('/customer-users', {
+            params,
+            paramsSerializer: params => {
+                return Object.entries(params)
+                    .filter(([_, value]) => value !== undefined && value !== '')
+                    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+                    .join('&');
+            }
+        }),
+        search: (query) => axiosInstance.get(`/customer-users/search?q=${query}`),
+        get: (id) => axiosInstance.get(`/customer-users/${id}`),
+        updateStatus: (id, status) => axiosInstance.patch(`/customer-users/${id}/status`, { status }),
+        delete: (id) => axiosInstance.delete(`/customer-users/${id}`),
+        getStatistics: () => axiosInstance.get('/customer-users/statistics'),
+    },
+
+    //sizes endpoints
+    sizes: {
+        list: (params = {}) => axiosInstance.get('/sizes', {
+            params,
+            paramsSerializer: params => {
+                return Object.entries(params)
+                    .filter(([_, value]) => value !== undefined && value !== '')
+                    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+                    .join('&');
+            }
+        }),
+        getActive: () => axiosInstance.get('/sizes/active'),
+        get: (id) => axiosInstance.get(`/sizes/${id}`),
+        create: (data) => axiosInstance.post('/sizes', data),
+        update: (id, data) => axiosInstance.put(`/sizes/${id}`, data),
+        delete: (id) => axiosInstance.delete(`/sizes/${id}`),
+        search: (query) => axiosInstance.get(`/sizes/search?q=${query}`),
+        updateStatus: (id, status) => axiosInstance.patch(`/sizes/${id}/status`, { status }),
+        manageColors: (id, colors) => axiosInstance.post(`/sizes/${id}/colors`, { colors: JSON.stringify(colors) }),
+        // Optionally add a method to get available colors for a size
+        getAvailableColors: (id) => axiosInstance.get(`/sizes/${id}/colors`),
+    },
+
+    //colors endpoints
+    colors: {
+        list: (params = {}) => axiosInstance.get('/colors', {
+            params,
+            paramsSerializer: params => {
+                return Object.entries(params)
+                    .filter(([_, value]) => value !== undefined && value !== '')
+                    .map(([key, value]) => `${key}=${encodeURIComponent(value)}`)
+                    .join('&');
+            }
+        }),
+        getActive: () => axiosInstance.get('/colors/active'),
+        get: (id) => axiosInstance.get(`/colors/${id}`),
+        create: (data) => axiosInstance.post('/colors', data),
+        update: (id, data) => axiosInstance.put(`/colors/${id}`, data),
+        delete: (id) => axiosInstance.delete(`/colors/${id}`),
+        search: (query) => axiosInstance.get(`/colors/search?q=${query}`),
+        updateStatus: (id, status) => axiosInstance.patch(`/colors/${id}/status`, { status }),
     },
     // Add more API endpoints as needed
 };

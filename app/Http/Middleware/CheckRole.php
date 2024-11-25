@@ -9,7 +9,8 @@ class CheckRole
 {
     public function handle(Request $request, Closure $next, ...$roles)
     {
-        if (!$request->user() || !in_array($request->user()->role, $roles)) {
+        // Explicitly check for admin guard
+        if (!$request->user('admin') || !in_array($request->user('admin')->role, $roles)) {
             return response()->json([
                 'message' => 'Unauthorized access'
             ], 403);

@@ -370,23 +370,8 @@ const Kupon = () => {
                 </div>
             </div>
 
-            {/* Coupons Table */}
+           {/* Coupons Table */}
             <div className="overflow-x-auto">
-                {loading ? (
-                    <tr>
-                        <td colSpan="7" className="text-center py-4">
-                            <div className="flex justify-center items-center">
-                                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-                            </div>
-                        </td>
-                    </tr>
-                ) : kupons.length === 0 ? (
-                    <tr>
-                        <td colSpan="7" className="text-center py-4">
-                            No coupons found
-                        </td>
-                    </tr>
-                ) : (
                 <table className={`min-w-full ${isDarkMode ? 'bg-gray-800' : 'bg-white'} rounded-lg shadow-md`}>
                     <thead className={isDarkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                         <tr>
@@ -400,62 +385,76 @@ const Kupon = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {kupons.map((kupon) => (
-                            <tr 
-                                key={kupon.id}
-                                className={`border-t ${
-                                    isDarkMode 
-                                        ? 'border-gray-700 hover:bg-gray-700' 
-                                        : 'border-gray-200 hover:bg-gray-50'
-                                }`}
-                            >
-                                <td className="px-6 py-4">{kupon.code}</td>
-                                <td className="px-6 py-4 capitalize">{kupon.discount_type}</td>
-                                <td className="px-6 py-4">
-                                    {kupon.discount_amount}
-                                    {kupon.discount_type === 'percent' ? '%' : ' IDR'}
-                                </td>
-                                <td className="px-6 py-4">
-                                    {format(new Date(kupon.start_date), 'dd/MM/yyyy')} - 
-                                    {format(new Date(kupon.end_date), 'dd/MM/yyyy')}
-                                </td>
-                                <td className="px-6 py-4">
-                                    {kupon.current_usage} / {kupon.max_usage}
-                                </td>
-                                <td className="px-6 py-4">
-                                    <button
-                                        onClick={() => handleStatusToggle(kupon.id, kupon.is_active)}
-                                        className={`px-3 py-1 rounded-full text-white ${
-                                            kupon.is_active ? 'bg-green-500' : 'bg-red-500'
-                                        }`}
-                                    >
-                                        {kupon.is_active ? 'Active' : 'Inactive'}
-                                    </button>
-                                </td>
-                                <td className="px-6 py-4">
-                                    <div className="flex gap-2">
-                                        <button
-                                            onClick={() => {
-                                                handleEdit(kupon);
-                                            }}
-                                            className="text-blue-500 hover:text-blue-700"
-                                        >
-                                            Edit
-                                        </button>
-                                        <button
-                                            onClick={() => handleDelete(kupon.id)}
-                                            className="text-red-500 hover:text-red-700"
-                                        >
-                                            Delete
-                                        </button>
+                        {loading ? (
+                            <tr>
+                                <td colSpan="7" className="text-center py-4">
+                                    <div className="flex justify-center items-center">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
                                     </div>
                                 </td>
                             </tr>
-                        ))}
+                        ) : kupons.length === 0 ? (
+                            <tr>
+                                <td colSpan="7" className="text-center py-4">
+                                    No coupons found
+                                </td>
+                            </tr>
+                        ) : (
+                            kupons.map((kupon) => (
+                                <tr 
+                                    key={kupon.id}
+                                    className={`border-t ${
+                                        isDarkMode 
+                                            ? 'border-gray-700 hover:bg-gray-700' 
+                                            : 'border-gray-200 hover:bg-gray-50'
+                                    }`}
+                                >
+                                    <td className="px-6 py-4">{kupon.code}</td>
+                                    <td className="px-6 py-4 capitalize">{kupon.discount_type}</td>
+                                    <td className="px-6 py-4">
+                                        {kupon.discount_amount}
+                                        {kupon.discount_type === 'percent' ? '%' : ' IDR'}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {format(new Date(kupon.start_date), 'dd/MM/yyyy')} - 
+                                        {format(new Date(kupon.end_date), 'dd/MM/yyyy')}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        {kupon.current_usage} / {kupon.max_usage}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <button
+                                            onClick={() => handleStatusToggle(kupon.id, kupon.is_active)}
+                                            className={`px-3 py-1 rounded-full text-white ${
+                                                kupon.is_active ? 'bg-green-500' : 'bg-red-500'
+                                            }`}
+                                        >
+                                            {kupon.is_active ? 'Active' : 'Inactive'}
+                                        </button>
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleEdit(kupon)}
+                                                className="text-blue-500 hover:text-blue-700"
+                                            >
+                                                Edit
+                                            </button>
+                                            <button
+                                                onClick={() => handleDelete(kupon.id)}
+                                                className="text-red-500 hover:text-red-700"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
                     </tbody>
                 </table>
-                )}
             </div>
+
 
             {/* Modal */}
             {showModal && (

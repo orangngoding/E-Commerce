@@ -19,7 +19,7 @@ const Login = () => {
 
         try {
             const response = await apiService.auth.login(formData);
-            localStorage.setItem('token', response.data.token);
+            localStorage.setItem('adminToken', response.data.token);
             localStorage.setItem('user', JSON.stringify(response.data.user));
             
             // If remember me is checked, store additional flag

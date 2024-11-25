@@ -11,12 +11,15 @@ const Product = () => {
     const { isDarkMode } = useOutletContext();
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [sizes, setSizes] = useState([]);
+    const [colors, setColors] = useState([]);
     const [loading, setLoading] = useState(true);
     const [modalOpen, setModalOpen] = useState(false);
     const [formMode, setFormMode] = useState('create');
     const [viewModalOpen, setViewModalOpen] = useState(false);
     const [viewProduct, setViewProduct] = useState(null);
     const [imagesToRemove, setImagesToRemove] = useState([]);
+    const [activeVariantType, setActiveVariantType] = useState(null);
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [formData, setFormData] = useState({
         kategori_id: '',
@@ -28,6 +31,9 @@ const Product = () => {
         status: 'draft',
         existingPrimaryId: '',
         newPrimaryImageIndex: -1, // For tracking selected primary image in new uploads
+        sizes: [],
+        colors: [],
+        size_variants: [], 
     });
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({
@@ -76,7 +82,19 @@ const Product = () => {
     
     useEffect(() => {
         fetchCategories();
+        fetchSizes();
+        fetchColors();
     }, []);
+
+    useEffect(() => {
+        if (formData.status === 'published') {
+            const totalStock = calculateTotalStock(formData.sizes, formData.colors);
+            setFormData(prev => ({
+                ...prev,
+                stock: totalStock.toString()
+            }));
+        }
+    }, [formData.status, formData.sizes, formData.colors]);
 
     const fetchProducts = async () => {
         try {
@@ -140,6 +158,473 @@ const Product = () => {
         }
     };
 
+    const fetchSizes = async () => {
+        try {
+            const response = await apiService.sizes.getActive();
+            if (response?.data?.data) {
+                setSizes(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching sizes:', error);
+            setSizes([]);
+        }
+    };
+
+    const fetchColors = async () => {
+        try {
+            const response = await apiService.colors.getActive();
+            if (response?.data?.data) {
+                setColors(response.data.data);
+            }
+        } catch (error) {
+            console.error('Error fetching colors:', error);
+            setColors([]);
+        }
+    };
+
+    const calculateTotalStock = (sizes = [], colors = [], variants = []) => {
+        const activeVariants = variants.filter(v => !v.to_delete);
+        const activeSizes = sizes.filter(s => !s.to_delete);
+        const activeColors = colors.filter(c => !c.to_delete);
+    
+        if (activeVariants.length > 0) {
+            return activeVariants.reduce((total, variant) => 
+                total + Number(variant.stock || 0), 0);
+        }
+    
+        if (activeSizes.length > 0) {
+            return activeSizes.reduce((total, size) => 
+                total + Number(size.stock || 0), 0);
+        }
+    
+        if (activeColors.length > 0) {
+            return activeColors.reduce((total, color) => 
+                total + Number(color.stock || 0), 0);
+        }
+    
+        return Number(formData.stock || 0);
+    };    
+
+
+    const addSizeColorVariant = () => {
+        if (activeVariantType && activeVariantType !== 'variant') return;
+        
+        setActiveVariantType('variant');
+        setFormData(prev => ({
+            ...prev,
+            size_variants: [
+                ...prev.size_variants,
+                {
+                    size_id: '',
+                    color_id: '',
+                    stock: '',
+                    additional_price: '0',
+                    pivot_id: null,
+                    to_delete: false
+                }
+            ]
+        }));
+    };
+    
+    const handleVariantChange = (index, field, value) => {
+        setFormData(prev => {
+            const updatedVariants = [...prev.size_variants];
+            
+            if (field === 'size_id') {
+                // Only reset color if changing to a different size
+                if (updatedVariants[index].size_id !== value) {
+                    updatedVariants[index] = {
+                        ...updatedVariants[index],
+                        size_id: value,
+                        color_id: '', // Reset color only when size changes
+                        pivot_id: updatedVariants[index]?.pivot_id,
+                        to_delete: false
+                    };
+                }
+            } else {
+                updatedVariants[index] = {
+                    ...updatedVariants[index],
+                    [field]: value,
+                    pivot_id: updatedVariants[index]?.pivot_id,
+                    to_delete: false
+                };
+            }
+    
+            // Update total stock if needed
+            if (field === 'stock' && prev.status === 'published') {
+                const totalStock = calculateTotalStock(prev.sizes, prev.colors, updatedVariants);
+                return {
+                    ...prev,
+                    size_variants: updatedVariants,
+                    stock: totalStock.toString()
+                };
+            }
+    
+            return {
+                ...prev,
+                size_variants: updatedVariants
+            };
+        });
+    };    
+
+    const getUsedSizeColorCombinations = (variants) => {
+        return variants
+            .filter(v => !v.to_delete && v.size_id && v.color_id)
+            .map(v => `${v.size_id}-${v.color_id}`);
+    };
+    
+    const getAvailableColorsForSize = (sizeId, variants, allColors) => {
+        // Get colors already used for this size (excluding the current variant)
+        const usedColors = variants
+            .filter(v => !v.to_delete && v.size_id === sizeId)
+            .map(v => v.color_id);
+        
+        // Return all colors, marking used ones as unavailable
+        return allColors.map(color => ({
+            ...color,
+            isAvailable: !usedColors.includes(color.id.toString())
+        }));
+    };
+    
+    const removeSizeColorVariant = (index) => {
+        setFormData(prev => {
+            const updatedVariants = [...prev.size_variants];
+            const variantToRemove = updatedVariants[index];
+    
+            if (variantToRemove?.pivot_id) {
+                updatedVariants[index] = {
+                    ...variantToRemove,
+                    to_delete: true,
+                    stock: '0',
+                    isHidden: true,
+                    pivot_id: variantToRemove.pivot_id
+                };
+            } else {
+                updatedVariants.splice(index, 1);
+            }
+    
+            // Reset activeVariantType if no active variants remain
+            const hasActiveVariants = updatedVariants.some(variant => !variant.to_delete && !variant.isHidden);
+            if (!hasActiveVariants) {
+                setActiveVariantType(null);
+            }
+    
+            const totalStock = calculateTotalStock(prev.sizes, prev.colors, updatedVariants);
+    
+            return {
+                ...prev,
+                size_variants: updatedVariants,
+                stock: totalStock.toString()
+            };
+        });
+    };
+
+    const validateSizeColorVariants = (variants) => {
+        if (!variants || !Array.isArray(variants)) {
+            return [];
+        }
+    
+        const validatedVariants = variants
+            .map(variant => {
+                // Include all variants, including those marked for deletion
+                if (variant && variant.size_id && variant.color_id) {
+                    return {
+                        size_id: variant.size_id,
+                        color_id: variant.color_id,
+                        stock: variant.stock || '0',
+                        additional_price: variant.additional_price || '0',
+                        to_delete: Boolean(variant.to_delete),
+                        pivot_id: variant.pivot_id || null
+                    };
+                }
+                return null;
+            })
+            .filter(variant => variant !== null);
+    
+        return validatedVariants;
+    };    
+
+    const handleSizeChange = (index, field, value) => {
+        setFormData(prev => {
+            const updatedSizes = [...prev.sizes];
+            if (!updatedSizes[index]) {
+                updatedSizes[index] = {};
+            }
+            
+            // Preserve pivot_id if it exists
+            const existingPivotId = updatedSizes[index].pivot_id;
+            
+            // If status is draft, set stock to 0 or preserve existing value
+            const stockValue = prev.status === 'draft' ? '0' : value;
+            
+            updatedSizes[index] = {
+                ...updatedSizes[index],
+                [field]: field === 'stock' && prev.status === 'draft' ? '0' : value,
+                pivot_id: existingPivotId
+            };
+    
+            // If the field being changed is 'stock', update the main stock
+            if (field === 'stock' && prev.status === 'published') {
+                const totalStock = calculateTotalStock(updatedSizes);
+                return {
+                    ...prev,
+                    sizes: updatedSizes,
+                    stock: totalStock.toString() // Update main stock
+                };
+            }
+    
+            return {
+                ...prev,
+                sizes: updatedSizes
+            };
+        });
+    };
+    
+    
+    const removeSizeRow = (index) => {
+        setFormData(prev => {
+            const updatedSizes = [...prev.sizes];
+            const sizeToRemove = updatedSizes[index];
+    
+            if (sizeToRemove?.size_id) {
+                updatedSizes[index] = {
+                    ...sizeToRemove,
+                    to_delete: true,
+                    size_id: sizeToRemove.size_id,
+                    stock: '0',
+                    additional_price: sizeToRemove.additional_price || '0',
+                    pivot_id: sizeToRemove.pivot_id || null,
+                    isHidden: true
+                };
+            } else {
+                updatedSizes.splice(index, 1);
+            }
+    
+            // Reset activeVariantType if no active sizes remain
+            const hasActiveSizes = updatedSizes.some(size => !size.to_delete && !size.isHidden);
+            if (!hasActiveSizes) {
+                setActiveVariantType(null);
+            }
+    
+            const totalStock = calculateTotalStock(updatedSizes);
+    
+            return {
+                ...prev,
+                sizes: updatedSizes,
+                stock: totalStock.toString()
+            };
+        });
+    };    
+    
+    const validateSizesData = (sizes) => {
+        if (!sizes || !Array.isArray(sizes)) return [];
+    
+        const validatedSizes = sizes
+            .filter(size => {
+                // Include sizes that have a size_id, regardless of pivot_id
+                const isValid = size && size.size_id && (
+                    !size.to_delete || // Keep active sizes
+                    (size.to_delete && (size.pivot_id || size.size_id)) // Keep marked-for-deletion sizes
+                );
+                
+                return isValid;
+            })
+            .map(size => ({
+                size_id: size.size_id,
+                stock: size.stock || '0',
+                additional_price: size.additional_price || '0',
+                to_delete: Boolean(size.to_delete),
+                pivot_id: size.pivot_id || null
+            }));
+    
+        return validatedSizes;
+    };
+    
+    const addSizeRow = () => {
+        if (activeVariantType && activeVariantType !== 'size') return;
+        
+        setActiveVariantType('size');
+        setFormData(prev => {
+            const newSize = {
+                size_id: '',
+                stock: '',
+                additional_price: '0',
+                pivot_id: null,
+                to_delete: false
+            };
+    
+            return {
+                ...prev,
+                sizes: [...prev.sizes, newSize]
+            };
+        });
+    };
+
+    const handleColorChange = (index, field, value) => {
+        setFormData(prev => {
+            const updatedColors = [...prev.colors];
+            if (!updatedColors[index]) {
+                updatedColors[index] = {};
+            }
+            
+            // Preserve pivot_id if it exists
+            const existingPivotId = updatedColors[index].pivot_id;
+            
+            // If status is draft, set stock to 0 or preserve existing value
+            const stockValue = prev.status === 'draft' ? '0' : value;
+            
+            updatedColors[index] = {
+                ...updatedColors[index],
+                [field]: field === 'stock' && prev.status === 'draft' ? '0' : value,
+                pivot_id: existingPivotId
+            };
+    
+            // If the field being changed is 'stock', update the main stock
+            if (field === 'stock' && prev.status === 'published') {
+                const totalStock = calculateTotalStock(prev.sizes, updatedColors);
+                return {
+                    ...prev,
+                    colors: updatedColors,
+                    stock: totalStock.toString() // Update main stock
+                };
+            }
+    
+            return {
+                ...prev,
+                colors: updatedColors
+            };
+        });
+    };
+    
+    const removeColorRow = (index) => {
+        setFormData(prev => {
+            const updatedColors = [...prev.colors];
+            const colorToRemove = updatedColors[index];
+    
+            if (colorToRemove?.color_id) {
+                updatedColors[index] = {
+                    ...colorToRemove,
+                    to_delete: true,
+                    color_id: colorToRemove.color_id,
+                    stock: '0',
+                    additional_price: colorToRemove.additional_price || '0',
+                    pivot_id: colorToRemove.pivot_id || null,
+                    isHidden: true
+                };
+            } else {
+                updatedColors.splice(index, 1);
+            }
+    
+            // Reset activeVariantType if no active colors remain
+            const hasActiveColors = updatedColors.some(color => !color.to_delete && !color.isHidden);
+            if (!hasActiveColors) {
+                setActiveVariantType(null);
+            }
+    
+            const totalStock = calculateTotalStock(prev.sizes, updatedColors);
+    
+            return {
+                ...prev,
+                colors: updatedColors,
+                stock: totalStock.toString()
+            };
+        });
+    };
+    
+    const addColorRow = () => {
+        if (activeVariantType && activeVariantType !== 'color') return;
+        
+        setActiveVariantType('color');
+        setFormData(prev => {
+            const newColor = {
+                color_id: '',
+                stock: '',
+                additional_price: '0',
+                pivot_id: null,
+                to_delete: false
+            };
+    
+            return {
+                ...prev,
+                colors: [...prev.colors, newColor]
+            };
+        });
+    };
+
+    const validateColorsData = (colors) => {
+        if (!colors || !Array.isArray(colors)) return [];
+    
+        const validatedColors = colors
+            .filter(color => {
+                const isValid = color && color.color_id && (
+                    !color.to_delete || 
+                    (color.to_delete && (color.pivot_id || color.color_id))
+                );
+                
+                return isValid;
+            })
+            .map(color => ({
+                color_id: color.color_id,
+                stock: color.stock || '0',
+                additional_price: color.additional_price || '0',
+                to_delete: Boolean(color.to_delete),
+                pivot_id: color.pivot_id || null
+            }));
+    
+        return validatedColors;
+    };
+
+    const validateStockConsistency = () => {
+        if (formData.status === 'published') {
+            // Calculate total stock from sizes and colors
+            const totalSizeStock = calculateTotalStock(formData.sizes, formData.colors);
+            const mainStock = Number(formData.stock);
+    
+            // If there are no sizes and colors, only validate main stock
+            if (!formData.sizes.length && !formData.colors.length) {
+                if (isNaN(mainStock) || mainStock < 0) {
+                    setAlert({
+                        isOpen: true,
+                        title: 'Invalid Stock',
+                        message: 'Please enter a valid stock number.',
+                        type: 'warning',
+                        onConfirm: () => setAlert(prev => ({ ...prev, isOpen: false })),
+                        onCancel: () => setAlert(prev => ({ ...prev, isOpen: false }))
+                    });
+                    return false;
+                }
+                return true;
+            }
+    
+            // Auto-update main stock based on size and color totals
+            if (totalSizeStock !== mainStock) {
+                setFormData(prev => ({
+                    ...prev,
+                    stock: totalSizeStock.toString()
+                }));
+            }
+    
+            // Validate if any size or color has negative stock
+            const hasNegativeStock = [
+                ...formData.sizes.filter(size => !size.to_delete),
+                ...formData.colors.filter(color => !color.to_delete)
+            ].some(item => Number(item.stock) < 0);
+    
+            if (hasNegativeStock) {
+                setAlert({
+                    isOpen: true,
+                    title: 'Invalid Stock',
+                    message: 'Stock values cannot be negative.',
+                    type: 'warning',
+                    onConfirm: () => setAlert(prev => ({ ...prev, isOpen: false })),
+                    onCancel: () => setAlert(prev => ({ ...prev, isOpen: false }))
+                });
+                return false;
+            }
+        }
+        return true;
+    };    
+
     const handlePageChange = (page) => {
         setPagination(prev => ({ ...prev, currentPage: page }));
     };
@@ -186,10 +671,41 @@ const Product = () => {
                     
                     // Append basic form data
                     Object.keys(formData).forEach(key => {
-                        if (!['images', 'newPrimaryImageIndex', 'existingPrimaryId'].includes(key) && formData[key] !== null) {
+                        if (!['images', 'newPrimaryImageIndex', 'existingPrimaryId', 'sizes', 'colors', 'size_variants'].includes(key) && formData[key] !== null) {
                             formDataObj.append(key, formData[key]);
                         }
                     });
+                    
+                    if (!validateStockConsistency()) {
+                        return;
+                    }
+                    
+                    // Validate and format sizes data
+                    const validatedSizes = validateSizesData(formData.sizes);
+
+                    if (validatedSizes.length > 0) {
+                        // Include both active sizes and sizes marked for deletion
+                        const sizesPayload = validatedSizes.map(size => ({
+                            size_id: size.size_id,
+                            stock: size.stock || '0',
+                            additional_price: size.additional_price || '0',
+                            to_delete: Boolean(size.to_delete),
+                            pivot_id: size.pivot_id
+                        }));
+
+                        formDataObj.append('sizes', JSON.stringify(sizesPayload));
+                    }
+
+                    const validatedColors = validateColorsData(formData.colors);
+                    if (validatedColors.length > 0) {
+                        formDataObj.append('colors', JSON.stringify(validatedColors));
+                    }
+
+                    const validatedVariants = validateSizeColorVariants(formData.size_variants);
+                    if (validatedVariants.length > 0) {
+                        // Send the variants directly without nesting under colors
+                        formDataObj.append('size_variants', JSON.stringify(validatedVariants));
+                    }
     
                     // Handle new images
                     if (formData.images.length > 0) {
@@ -203,21 +719,17 @@ const Product = () => {
     
                     // Handle existing images in edit mode
                     if (formMode === 'edit' && selectedProduct?.images) {
-                        // Add images to remove
                         if (imagesToRemove.length > 0) {
                             formDataObj.append('images_to_remove', JSON.stringify(imagesToRemove));
                         }
     
-                        // Handle existing images' primary status
                         const existingImagesData = {};
                         selectedProduct.images.forEach(img => {
-                            // Only include images that are not marked for removal
                             if (!imagesToRemove.includes(img.id)) {
                                 existingImagesData[img.id] = img.id === formData.existingPrimaryId ? '1' : '0';
                             }
                         });
                         
-                        // Only append if there are remaining images
                         if (Object.keys(existingImagesData).length > 0) {
                             formDataObj.append('existing_images', JSON.stringify(existingImagesData));
                         }
@@ -229,7 +741,7 @@ const Product = () => {
                     } else {
                         response = await apiService.products.update(selectedProduct.id, formDataObj);
                     }
-    
+                    
                     setAlert({
                         isOpen: true,
                         title: 'Success',
@@ -244,10 +756,11 @@ const Product = () => {
                         onCancel: () => setAlert(prev => ({ ...prev, isOpen: false }))
                     });
                 } catch (error) {
+                    console.error('Submit error:', error);
                     setAlert({
                         isOpen: true,
                         title: 'Error',
-                        message: `Failed to ${formMode} product: ${error.message}`,
+                        message: `Failed to ${formMode} product: ${error.response?.data?.message || error.message}`,
                         type: 'danger',
                         onConfirm: () => setAlert(prev => ({ ...prev, isOpen: false })),
                         onCancel: () => setAlert(prev => ({ ...prev, isOpen: false }))
@@ -256,9 +769,7 @@ const Product = () => {
             },
             onCancel: () => setAlert(prev => ({ ...prev, isOpen: false }))
         });
-    };
-    
-
+    };    
 
     const handleView = (product) => {
         setViewProduct(product);
@@ -267,6 +778,29 @@ const Product = () => {
 
     const handleEdit = (product) => {
         setSelectedProduct(product);
+    
+        // Initialize size_variants from product.variants with proper mapping
+        const initialSizeVariants = product.variants?.map(variant => ({
+            size_id: variant.size?.id?.toString() || variant.size_id?.toString(),
+            color_id: variant.color?.id?.toString() || variant.color_id?.toString(),
+            stock: variant.stock?.toString() || '0',
+            additional_price: variant.additional_price?.toString() || '0',
+            pivot_id: variant.id,
+            to_delete: false,
+            isHidden: false
+        })) || [];
+    
+        // Determine active variant type based on existing data
+        let activeType = null;
+        if (initialSizeVariants.some(v => !v.to_delete)) {
+            activeType = 'variant';
+        } else if (product.sizes?.some(s => !s.pivot?.to_delete)) {
+            activeType = 'size';
+        } else if (product.colors?.some(c => !c.pivot?.to_delete)) {
+            activeType = 'color';
+        }
+        setActiveVariantType(activeType);
+    
         setFormData({
             kategori_id: product.kategori_id,
             name: product.name,
@@ -274,14 +808,30 @@ const Product = () => {
             price: product.price,
             stock: product.stock,
             status: product.status,
-            images: [], // New images to upload
-            newPrimaryImageIndex: -1, // For new images
-            existingPrimaryId: product.images.find(img => img.is_primary)?.id || null // Track existing primary
+            images: [],
+            newPrimaryImageIndex: -1,
+            existingPrimaryId: product.images.find(img => img.is_primary)?.id || null,
+            sizes: Array.isArray(product.sizes) ? product.sizes.map(size => ({
+                size_id: size.id.toString(),
+                stock: size.pivot.stock.toString(),
+                additional_price: size.pivot.additional_price?.toString() || '0',
+                pivot_id: size.pivot.id,
+                to_delete: false
+            })) : [],
+            colors: Array.isArray(product.colors) ? product.colors.map(color => ({
+                color_id: color.id.toString(),
+                stock: color.pivot.stock.toString(),
+                additional_price: color.pivot.additional_price?.toString() || '0',
+                pivot_id: color.pivot.id,
+                to_delete: false
+            })) : [],
+            size_variants: initialSizeVariants
         });
+    
         setImagesToRemove([]);
         setFormMode('edit');
         setModalOpen(true);
-    };
+    };    
 
     const handleDelete = (id) => {
         setAlert({
@@ -373,10 +923,14 @@ const Product = () => {
             price: '',
             stock: '',
             images: [],
-            status: 'draft'
+            status: 'draft',
+            sizes: [],
+            colors: [],
+            size_variants: [], 
         });
         setSelectedProduct(null);
         setFormMode('create');
+        setActiveVariantType(null); 
     };
 
     return (
@@ -668,7 +1222,22 @@ const Product = () => {
                                                     <label className="block text-sm font-medium mb-2">Status</label>
                                                     <select
                                                         value={formData.status}
-                                                        onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                                        onChange={(e) => {
+                                                            const newStatus = e.target.value;
+                                                            setFormData(prev => {
+                                                                // If changing to draft, set all size stocks to 0
+                                                                const updatedSizes = prev.sizes.map(size => ({
+                                                                    ...size,
+                                                                    stock: newStatus === 'draft' ? '0' : size.stock
+                                                                }));
+                                                                
+                                                                return {
+                                                                    ...prev,
+                                                                    status: newStatus,
+                                                                    sizes: updatedSizes
+                                                                };
+                                                            });
+                                                        }}
                                                         className={`
                                                             w-full rounded-lg px-4 py-2.5 border transition-colors
                                                             ${isDarkMode 
@@ -681,6 +1250,344 @@ const Product = () => {
                                                         <option value="draft">Draft</option>
                                                     </select>
                                                 </div>
+                                            </div>
+
+                                            {/* Color Section */}
+                                            <div className="col-span-full space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="block text-sm font-medium mb-2">Product Colors</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={addColorRow}
+                                                        disabled={activeVariantType && activeVariantType !== 'color'}
+                                                        className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                                                            activeVariantType && activeVariantType !== 'color'
+                                                            ? 'bg-gray-400 cursor-not-allowed'
+                                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                        }`}
+                                                    >
+                                                        Add Color Only
+                                                    </button>
+                                                </div>
+
+                                                {formData.colors
+                                                    .filter(color => !color.isHidden)
+                                                    .map((colorData, index) => (
+                                                        <div key={index} className="grid grid-cols-3 gap-4 p-4 border rounded-lg relative">
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-2">Color</label>
+                                                                <select
+                                                                    value={colorData.color_id}
+                                                                    onChange={(e) => handleColorChange(index, 'color_id', e.target.value)}
+                                                                    className={`
+                                                                        w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                        ${isDarkMode 
+                                                                            ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                            : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                    `}
+                                                                    required
+                                                                >
+                                                                    <option value="">Select Color</option>
+                                                                    {colors.map(color => (
+                                                                        <option 
+                                                                            key={color.id} 
+                                                                            value={color.id}
+                                                                            disabled={formData.colors.some(
+                                                                                (c, i) => i !== index && c.color_id === color.id.toString()
+                                                                            )}
+                                                                        >
+                                                                            {color.name}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            
+                                                            {formData.status === 'published' && (
+                                                                <div>
+                                                                    <label className="block text-sm font-medium mb-2">Stock</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={colorData.stock}
+                                                                        onChange={(e) => handleColorChange(index, 'stock', e.target.value)}
+                                                                        className={`
+                                                                            w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                            ${isDarkMode 
+                                                                                ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                                : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                        `}
+                                                                        min="0"
+                                                                        required
+                                                                    />
+                                                                </div>
+                                                            )}
+
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-2">Additional Price</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={colorData.additional_price}
+                                                                    onChange={(e) => handleColorChange(index, 'additional_price', e.target.value)}
+                                                                    className={`
+                                                                        w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                        ${isDarkMode 
+                                                                            ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                            : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                    `}
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                />
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeColorRow(index)}
+                                                                className="absolute -right-2 -top-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                            </div>
+
+
+                                             {/* add Size Section */}      
+                                            <div className="col-span-full space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="block text-sm font-medium mb-2">Product Sizes</label>
+                                                    <button
+                                                        type="button"
+                                                        onClick={addSizeRow}
+                                                        disabled={activeVariantType && activeVariantType !== 'size'}
+                                                        className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                                                            activeVariantType && activeVariantType !== 'size'
+                                                            ? 'bg-gray-400 cursor-not-allowed'
+                                                            : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                        }`}
+                                                    >
+                                                        Add Size Only
+                                                    </button>
+                                                </div>
+
+                                                {formData.sizes
+                                                    .filter(size => !size.isHidden) // Only show non-hidden sizes
+                                                    .map((sizeData, index) => (
+                                                        <div key={index} className="grid grid-cols-3 gap-4 p-4 border rounded-lg relative">
+                                                        <div>
+                                                            <label className="block text-sm font-medium mb-2">Size</label>
+                                                            <select
+                                                                value={sizeData.size_id}
+                                                                onChange={(e) => handleSizeChange(index, 'size_id', e.target.value)}
+                                                                className={`
+                                                                    w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                    ${isDarkMode 
+                                                                        ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                        : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                `}
+                                                                required
+                                                            >
+                                                                <option value="">Select Size</option>
+                                                                {sizes.map(size => (
+                                                                    <option 
+                                                                        key={size.id} 
+                                                                        value={size.id}
+                                                                        disabled={formData.sizes.some(
+                                                                            (s, i) => i !== index && s.size_id === size.id.toString()
+                                                                        )}
+                                                                    >
+                                                                        {size.name}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </div>
+                                                        
+                                                        {/* Only show stock input if status is published */}
+                                                        {formData.status === 'published' && (
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-2">Stock</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={sizeData.stock}
+                                                                    onChange={(e) => handleSizeChange(index, 'stock', e.target.value)}
+                                                                    className={`
+                                                                        w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                        ${isDarkMode 
+                                                                            ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                            : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                    `}
+                                                                    min="0"
+                                                                    required
+                                                                />
+                                                            </div>
+                                                        )}
+                                                    
+                                                        <div>
+                                                            <label className="block text-sm font-medium mb-2">Additional Price</label>
+                                                            <input
+                                                                type="number"
+                                                                value={sizeData.additional_price}
+                                                                onChange={(e) => handleSizeChange(index, 'additional_price', e.target.value)}
+                                                                className={`
+                                                                    w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                    ${isDarkMode 
+                                                                        ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                        : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                `}
+                                                                min="0"
+                                                                step="0.01"
+                                                            />
+                                                        </div>
+                                                    
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeSizeRow(index)}
+                                                            className="absolute -right-2 -top-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                            </svg>
+                                                        </button>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            {/* Add Size & Color Section */}
+                                            <div className="col-span-full space-y-4">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="block text-sm font-medium mb-2">Product Size & Color Variants</label>
+                                                        <button
+                                                            type="button"
+                                                            onClick={addSizeColorVariant}
+                                                            disabled={activeVariantType && activeVariantType !== 'variant'}
+                                                            className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                                                                activeVariantType && activeVariantType !== 'variant'
+                                                                ? 'bg-gray-400 cursor-not-allowed'
+                                                                : 'bg-purple-600 hover:bg-purple-700 text-white'
+                                                            }`}
+                                                        >
+                                                            Add Size & Color
+                                                        </button>
+                                                </div>
+
+                                            {(formData.size_variants || [])
+                                                .filter(variant => !variant.isHidden)
+                                                .map((variant, index) => {
+                                                    const usedCombinations = getUsedSizeColorCombinations(formData.size_variants);
+                                                    const availableColors = variant.size_id ? 
+                                                        getAvailableColorsForSize(variant.size_id, formData.size_variants, colors) : [];
+
+                                                    return (
+                                                        <div key={index} className="grid grid-cols-4 gap-4 p-4 border rounded-lg relative">
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-2">Size</label>
+                                                                <select
+                                                                    value={variant.size_id || ''}
+                                                                    onChange={(e) => handleVariantChange(index, 'size_id', e.target.value)}
+                                                                    className={`
+                                                                        w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                        ${isDarkMode 
+                                                                            ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                            : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                    `}
+                                                                    required
+                                                                >
+                                                                    <option value="">Select Size</option>
+                                                                    {sizes.map(size => {
+                                                                        const hasAllColors = colors.every(color => 
+                                                                            usedCombinations.includes(`${size.id}-${color.id}`)
+                                                                        );
+                                                                        
+                                                                        return (
+                                                                            <option 
+                                                                                key={size.id} 
+                                                                                value={size.id}
+                                                                                disabled={hasAllColors && size.id !== variant.size_id}
+                                                                            >
+                                                                                {size.name}
+                                                                            </option>
+                                                                        );
+                                                                    })}
+                                                                </select>
+                                                            </div>
+
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-2">Color</label>
+                                                                <select
+                                                                    value={variant.color_id || ''}
+                                                                    onChange={(e) => handleVariantChange(index, 'color_id', e.target.value)}
+                                                                    className={`
+                                                                        w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                        ${isDarkMode 
+                                                                            ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                            : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                        ${!variant.size_id ? 'opacity-50' : ''}
+                                                                    `}
+                                                                    required
+                                                                    disabled={!variant.size_id}
+                                                                >
+                                                                    <option value="">Select Color</option>
+                                                                    {availableColors.map(color => (
+                                                                        <option 
+                                                                            key={color.id} 
+                                                                            value={color.id}
+                                                                            disabled={!color.isAvailable && color.id.toString() !== variant.color_id}
+                                                                        >
+                                                                            {color.name} {!color.isAvailable && color.id.toString() !== variant.color_id ? '(Already Used)' : ''}
+                                                                        </option>
+                                                                    ))}
+                                                                </select>
+
+                                                            </div>
+
+                                                            {formData.status === 'published' && (
+                                                                <div>
+                                                                    <label className="block text-sm font-medium mb-2">Stock</label>
+                                                                    <input
+                                                                        type="number"
+                                                                        value={variant.stock || ''}
+                                                                        onChange={(e) => handleVariantChange(index, 'stock', e.target.value)}
+                                                                        className={`
+                                                                            w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                            ${isDarkMode 
+                                                                                ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                                : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                        `}
+                                                                        min="0"
+                                                                        required
+                                                                    />
+                                                                </div>
+                                                            )}
+
+                                                            <div>
+                                                                <label className="block text-sm font-medium mb-2">Additional Price</label>
+                                                                <input
+                                                                    type="number"
+                                                                    value={variant.additional_price || ''}
+                                                                    onChange={(e) => handleVariantChange(index, 'additional_price', e.target.value)}
+                                                                    className={`
+                                                                        w-full rounded-lg px-4 py-2.5 border transition-colors
+                                                                        ${isDarkMode 
+                                                                            ? 'bg-gray-700 border-gray-600 focus:border-blue-500' 
+                                                                            : 'bg-gray-50 border-gray-300 focus:border-blue-600'}
+                                                                    `}
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                />
+                                                            </div>
+
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => removeSizeColorVariant(index)}
+                                                                className="absolute -right-2 -top-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                                                            >
+                                                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                                </svg>
+                                                            </button>
+                                                            </div>
+                                                        );
+                                                    })}
                                             </div>
 
                                             {/* Image Upload Section */}
@@ -1052,13 +1959,28 @@ const Product = () => {
                                                     <div className="p-4 rounded-lg bg-gray-50 dark:bg-gray-700">
                                                         <h4 className="text-sm font-medium text-gray-500 dark:text-gray-400">Stock Status</h4>
                                                         {viewProduct.status === 'published' ? (
-                                                            <div className="mt-1 flex items-center space-x-2">
-                                                                <span className={`w-3 h-3 rounded-full ${
-                                                                    Number(viewProduct.stock) > 0 ? 'bg-green-500' : 'bg-red-500'
-                                                                }`}></span>
-                                                                <span className="font-medium">
-                                                                    {Number(viewProduct.stock) > 0 ? `${viewProduct.stock} units` : 'Out of stock'}
-                                                                </span>
+                                                            <div className="space-y-2">
+                                                                <div className="mt-1 flex items-center space-x-2">
+                                                                    <span className={`w-3 h-3 rounded-full ${
+                                                                        Number(viewProduct.stock) > 0 ? 'bg-green-500' : 'bg-red-500'
+                                                                    }`}></span>
+                                                                    <span className="font-medium">
+                                                                        {Number(viewProduct.stock) > 0 ? `${viewProduct.stock} total units` : 'Out of stock'}
+                                                                    </span>
+                                                                </div>
+                                                                {viewProduct.sizes && viewProduct.sizes.length > 0 && (
+                                                                    <div className="mt-2">
+                                                                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Stock by Size:</p>
+                                                                        <div className="mt-1 space-y-1">
+                                                                            {viewProduct.sizes.map(size => (
+                                                                                <div key={size.id} className="flex justify-between text-sm">
+                                                                                    <span>{size.name}:</span>
+                                                                                    <span>{size.pivot.stock} units</span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         ) : (
                                                             <p className="mt-1 text-gray-400 italic">Draft</p>

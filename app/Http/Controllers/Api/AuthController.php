@@ -34,7 +34,7 @@ class AuthController extends Controller
 
     // Create token with longer expiration if remember me is checked
     $tokenExpiration = $request->remember ? 43200 : 1440; // 30 days : 1 day
-    $token = $user->createToken('auth-token', ['*'], now()->addMinutes($tokenExpiration))->plainTextToken;
+    $token = $user->createToken('admin-token', ['admin'], now()->addMinutes($tokenExpiration))->plainTextToken;
 
     return response()->json([
         'token' => $token,

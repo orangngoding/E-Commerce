@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { apiService } from '../../utils/axios';
-import Navbar from './navbar';
+import Navbar from './frontend-component/navbar';
 import CategoryCarousel from './frontend-component/CategoryCarousel';
+import ProductCarousel from './frontend-component/ProductCarousel';
 
 
 const Home = () => {
@@ -13,6 +14,8 @@ const Home = () => {
   const [direction, setDirection] = useState('next');
   const [categories, setCategories] = useState([]);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [productsLoading, setProductsLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -51,6 +54,20 @@ const Home = () => {
     fetchCategories();
   }, []);
 
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await apiService.products.getLatestPublished();
+        setProducts(response.data.data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setProductsLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   useEffect(() => {
     if (sliders.length <= 1) return;
@@ -241,10 +258,10 @@ const Home = () => {
 
       {/* Featured Products */}
       <div className="max-w-7xl mx-auto px-4 py-16">
-        <h2 className="text-3xl font-bold mb-8 text-gray-800">Featured Products</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          
-        </div>
+        <ProductCarousel 
+          products={products}
+          loading={productsLoading}
+        />
       </div>
     </div>
   );
