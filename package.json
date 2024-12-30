@@ -21,7 +21,7 @@
     },
     "dependencies": {
         "@headlessui/react": "^2.2.0",
-        "@heroicons/react": "^2.1.5",
+        "@heroicons/react": "^2.2.0",
         "date-fns": "^4.1.0",
         "lodash": "^4.17.21",
         "react-hot-toast": "^2.4.1",
